@@ -19,7 +19,8 @@ import {
   Calculator,
   BarChart2,
   ChevronRight,
-  Wallet
+  Wallet,
+  Percent
 } from 'lucide-react';
 
 // --- Theme Constants ---
@@ -64,7 +65,9 @@ const THEMES = {
     calcBtn: "bg-[#293249] text-[#98a1c0] hover:text-white hover:bg-[#404a67]",
     shadow: "shadow-xl",
     addButton: "border-[#293249] text-[#27ae60] hover:bg-[#27ae60]/10",
-    addButtonOutflow: "border-[#293249] text-[#ff4343] hover:bg-[#ff4343]/10"
+    addButtonOutflow: "border-[#293249] text-[#ff4343] hover:bg-[#ff4343]/10",
+    toggleActive: "bg-[#4c82fb] text-white",
+    toggleInactive: "bg-transparent text-[#98a1c0] hover:text-white"
   },
   light: {
     name: 'light',
@@ -106,7 +109,9 @@ const THEMES = {
     calcBtn: "bg-[#EDEEF2] text-[#7780A0] hover:text-[#4c82fb] hover:bg-[#D2D9EE]",
     shadow: "shadow-lg shadow-gray-200/50",
     addButton: "border-[#D9D9D9] text-[#27ae60] hover:bg-[#27ae60]/10",
-    addButtonOutflow: "border-[#D9D9D9] text-[#ff4343] hover:bg-[#ff4343]/10"
+    addButtonOutflow: "border-[#D9D9D9] text-[#ff4343] hover:bg-[#ff4343]/10",
+    toggleActive: "bg-[#4c82fb] text-white shadow-md",
+    toggleInactive: "bg-transparent text-[#7780A0] hover:text-[#0D111C]"
   }
 };
 
@@ -490,7 +495,123 @@ const StampDutyCalcModal = ({ isOpen, onClose, purchasePrice, onApply, theme }) 
   );
 };
 
+const FrequencyCalcModal = ({ isOpen, onClose, onApply, title, theme }) => {
+  const [amount, setAmount] = useState('');
+  const [frequency, setFrequency] = useState('weekly');
+  const [monthlyAmount, setMonthlyAmount] = useState(0);
+
+  useEffect(() => {
+    if (isOpen) {
+      setAmount('');
+      setFrequency('weekly');
+      setMonthlyAmount(0);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const val = parseMoney(amount);
+    let monthly = 0;
+    // Logic: Convert to annual then divide by 12
+    switch (frequency) {
+      case 'weekly': monthly = (val * 52) / 12; break;
+      case 'fortnightly': monthly = (val * 26) / 12; break;
+      case 'quarterly': monthly = (val * 4) / 12; break;
+      case 'annually': monthly = val / 12; break;
+      default: monthly = val; // monthly
+    }
+    setMonthlyAmount(monthly);
+  }, [amount, frequency]);
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={title} theme={theme}>
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-4">
+           <Input 
+             label="Amount" 
+             prefix="$" 
+             value={amount} 
+             onChange={(e) => setAmount(e.target.value)} 
+             placeholder="0.00" 
+             theme={theme} 
+           />
+           <Select 
+             label="Frequency" 
+             value={frequency} 
+             onChange={(e) => setFrequency(e.target.value)} 
+             options={[
+               {value: 'weekly', label: 'Weekly'},
+               {value: 'fortnightly', label: 'Fortnightly'},
+               {value: 'quarterly', label: 'Quarterly'},
+               {value: 'annually', label: 'Annually'}
+             ]}
+             theme={theme}
+           />
+        </div>
+
+        <div className="bg-[#4c82fb]/10 border border-[#4c82fb]/30 rounded-2xl p-6 flex justify-between items-center">
+           <span className="text-sm font-bold text-[#4c82fb] uppercase">Monthly Equivalent</span>
+           <span className={`text-3xl font-medium ${theme.textMain}`}>{formatMoney(monthlyAmount)}</span>
+        </div>
+
+        <div className={`flex gap-3 pt-4 ${theme.borderTop}`}>
+           <Button variant="secondary" onClick={onClose} className="flex-1" theme={theme}>Cancel</Button>
+           <Button onClick={() => { onApply(monthlyAmount); onClose(); }} className="flex-1" theme={theme}>Apply Monthly Amount</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+const ExpenseRatioCalcModal = ({ isOpen, onClose, portfolioValue, onApply, theme }) => {
+  const [percent, setPercent] = useState('');
+  const [monthlyExpense, setMonthlyExpense] = useState(0);
+
+  useEffect(() => {
+    if (isOpen) {
+      setPercent('');
+      setMonthlyExpense(0);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const val = parseMoney(portfolioValue);
+    const p = parseFloat(percent) || 0;
+    // (Value * % / 100) / 12
+    const monthly = (val * (p / 100)) / 12;
+    setMonthlyExpense(monthly);
+  }, [percent, portfolioValue]);
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Expense Ratio Calculator" theme={theme}>
+      <div className="space-y-6">
+        <div className={`${theme.subCard} p-6 rounded-2xl`}>
+           <div className={`text-xs font-bold ${theme.textMuted} uppercase mb-1`}>Portfolio Value</div>
+           <div className={`text-3xl font-medium ${theme.textMain}`}>{formatMoney(parseMoney(portfolioValue))}</div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4">
+           <div className="relative">
+             <Input label="Expense Ratio (p.a)" value={percent} onChange={(e) => setPercent(e.target.value)} placeholder="e.g. 1.5" theme={theme} />
+             <span className={`absolute right-4 top-10 ${theme.textMuted} text-xl`}>%</span>
+           </div>
+        </div>
+
+        <div className="bg-[#4c82fb]/10 border border-[#4c82fb]/30 rounded-2xl p-6 flex justify-between items-center">
+           <span className="text-sm font-bold text-[#4c82fb] uppercase">Monthly Expense</span>
+           <span className={`text-3xl font-medium ${theme.textMain}`}>{formatMoney(monthlyExpense)}</span>
+        </div>
+
+        <div className={`flex gap-3 pt-4 ${theme.borderTop}`}>
+           <Button variant="secondary" onClick={onClose} className="flex-1" theme={theme}>Cancel</Button>
+           <Button onClick={() => { onApply(monthlyExpense); onClose(); }} className="flex-1" theme={theme}>Apply Expense</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
 const ItemModal = ({ isOpen, onClose, type, category, initialData, onSave, theme }) => {
+  // ... existing implementation
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [month, setMonth] = useState(1);
@@ -642,6 +763,7 @@ const ItemModal = ({ isOpen, onClose, type, category, initialData, onSave, theme
 };
 
 const PropertyModal = ({ isOpen, onClose, onAdd, theme }) => {
+  // ... existing implementation
   const [formData, setFormData] = useState({
     name: '', isNewPurchase: true, value: '', stampDuty: '', legal: '', 
     ongoingExpenses: '', expenseFreq: 'monthly', rentalIncome: '', 
@@ -650,6 +772,8 @@ const PropertyModal = ({ isOpen, onClose, onAdd, theme }) => {
   const [isLoanCalcOpen, setIsLoanCalcOpen] = useState(false);
   const [isRepaymentCalcOpen, setIsRepaymentCalcOpen] = useState(false);
   const [isStampDutyCalcOpen, setIsStampDutyCalcOpen] = useState(false);
+  const [isIncomeCalcOpen, setIsIncomeCalcOpen] = useState(false);
+  const [isExpenseCalcOpen, setIsExpenseCalcOpen] = useState(false);
 
   const handleChange = (f) => (e) => setFormData(p => ({ ...p, [f]: e.target.value }));
 
@@ -672,6 +796,8 @@ const PropertyModal = ({ isOpen, onClose, onAdd, theme }) => {
   const handleApplyLoan = (amount) => setFormData(p => ({ ...p, loanAmount: amount.toFixed(0) }));
   const handleApplyRepayment = (amount) => setFormData(p => ({ ...p, loanRepayments: amount.toFixed(0) }));
   const handleApplyStampDuty = (amount) => setFormData(p => ({ ...p, stampDuty: amount.toFixed(0) }));
+  const handleApplyMonthlyExpense = (amount) => setFormData(p => ({ ...p, ongoingExpenses: amount.toFixed(0), expenseFreq: 'monthly' }));
+  const handleApplyMonthlyIncome = (amount) => setFormData(p => ({ ...p, rentalIncome: amount.toFixed(0) }));
 
   return (
     <>
@@ -727,7 +853,24 @@ const PropertyModal = ({ isOpen, onClose, onAdd, theme }) => {
 
           <div className={`${theme.borderTop} pt-4 space-y-4`}>
             <div className="grid grid-cols-2 gap-4">
-                <Input label="Ongoing Expenses" prefix="$" value={formData.ongoingExpenses} onChange={handleChange('ongoingExpenses')} placeholder="0.00" theme={theme} />
+                <Input 
+                  label="Ongoing Expenses" 
+                  prefix="$" 
+                  value={formData.ongoingExpenses} 
+                  onChange={handleChange('ongoingExpenses')} 
+                  placeholder="0.00" 
+                  theme={theme}
+                  action={
+                    <button 
+                      type="button"
+                      onClick={() => setIsExpenseCalcOpen(true)}
+                      className={`p-3 rounded-xl transition-all ${theme.calcBtn}`}
+                      title="Calculate Monthly Expense"
+                    >
+                      <Calculator size={20} />
+                    </button>
+                  }
+                />
                 <Select 
                   label="Expense Frequency" 
                   value={formData.expenseFreq} 
@@ -736,7 +879,24 @@ const PropertyModal = ({ isOpen, onClose, onAdd, theme }) => {
                   theme={theme}
                 />
             </div>
-            <Input label="Monthly Rental Income" prefix="$" value={formData.rentalIncome} onChange={handleChange('rentalIncome')} placeholder="0.00" theme={theme} />
+            <Input 
+              label="Monthly Rental Income" 
+              prefix="$" 
+              value={formData.rentalIncome} 
+              onChange={handleChange('rentalIncome')} 
+              placeholder="0.00" 
+              theme={theme} 
+              action={
+                <button 
+                  type="button"
+                  onClick={() => setIsIncomeCalcOpen(true)}
+                  className={`p-3 rounded-xl transition-all ${theme.calcBtn}`}
+                  title="Calculate Monthly Rent"
+                >
+                  <Calculator size={20} />
+                </button>
+              }
+            />
           </div>
 
           <div className={`${theme.borderTop} pt-4`}>
@@ -802,6 +962,8 @@ const PropertyModal = ({ isOpen, onClose, onAdd, theme }) => {
       <LoanCalcModal isOpen={isLoanCalcOpen} onClose={() => setIsLoanCalcOpen(false)} propertyValue={formData.value} onApply={handleApplyLoan} theme={theme} />
       <RepaymentCalcModal isOpen={isRepaymentCalcOpen} onClose={() => setIsRepaymentCalcOpen(false)} loanAmount={formData.loanAmount} onApply={handleApplyRepayment} theme={theme} />
       <StampDutyCalcModal isOpen={isStampDutyCalcOpen} onClose={() => setIsStampDutyCalcOpen(false)} purchasePrice={formData.value} onApply={handleApplyStampDuty} theme={theme} />
+      <FrequencyCalcModal isOpen={isExpenseCalcOpen} onClose={() => setIsExpenseCalcOpen(false)} onApply={handleApplyMonthlyExpense} title="Expense to Monthly Converter" theme={theme} />
+      <FrequencyCalcModal isOpen={isIncomeCalcOpen} onClose={() => setIsIncomeCalcOpen(false)} onApply={handleApplyMonthlyIncome} title="Rent to Monthly Converter" theme={theme} />
     </>
   );
 };
@@ -809,8 +971,10 @@ const PropertyModal = ({ isOpen, onClose, onAdd, theme }) => {
 const PortfolioModal = ({ isOpen, onClose, onAdd, theme }) => {
   const [formData, setFormData] = useState({
     name: '', isNewInvestment: true, value: '', costs: '', 
-    yieldPercent: '', paymentFreq: 'quarterly', ongoingExpenses: '', expenseFreq: 'monthly'
+    yieldPercent: '', paymentFreq: 'quarterly', ongoingExpenses: '', expenseFreq: 'monthly',
+    fixedIncomeAmount: '', incomeType: 'percentage'
   });
+  const [isExpenseRatioCalcOpen, setIsExpenseRatioCalcOpen] = useState(false);
 
   const handleChange = (f) => (e) => setFormData(p => ({ ...p, [f]: e.target.value }));
 
@@ -818,7 +982,8 @@ const PortfolioModal = ({ isOpen, onClose, onAdd, theme }) => {
     if (isOpen) {
        setFormData({
         name: '', isNewInvestment: true, value: '', costs: '', 
-        yieldPercent: '', paymentFreq: 'quarterly', ongoingExpenses: '', expenseFreq: 'monthly'
+        yieldPercent: '', paymentFreq: 'quarterly', ongoingExpenses: '', expenseFreq: 'monthly',
+        fixedIncomeAmount: '', incomeType: 'percentage'
        });
     }
   }, [isOpen]);
@@ -828,72 +993,124 @@ const PortfolioModal = ({ isOpen, onClose, onAdd, theme }) => {
     onAdd(formData);
   };
 
+  const handleApplyExpenseRatio = (amount) => {
+    setFormData(p => ({ ...p, ongoingExpenses: amount.toFixed(0), expenseFreq: 'monthly' }));
+  };
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Add Portfolio" theme={theme}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Input label="Portfolio Name / Title" placeholder="e.g. Blue Chip Shares" value={formData.name} onChange={handleChange('name')} theme={theme} />
-        
-        <div className={`grid grid-cols-2 gap-2 ${theme.subCard} p-1.5 rounded-2xl`}>
-           <button 
-             type="button" 
-             onClick={() => setFormData(p => ({...p, isNewInvestment: true}))}
-             className={`py-3 rounded-xl text-sm font-bold transition-all ${formData.isNewInvestment ? 'bg-[#4c82fb] text-white shadow-lg' : `${theme.textMuted} hover:${theme.textMain}`}`}
-            >
-              New Investment
-           </button>
-           <button 
-             type="button" 
-             onClick={() => setFormData(p => ({...p, isNewInvestment: false}))}
-             className={`py-3 rounded-xl text-sm font-bold transition-all ${!formData.isNewInvestment ? 'bg-[#4c82fb] text-white shadow-lg' : `${theme.textMuted} hover:${theme.textMain}`}`}
-            >
-              Current Portfolio
-           </button>
-        </div>
+    <>
+      <Modal isOpen={isOpen} onClose={onClose} title="Add Portfolio" theme={theme}>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input label="Portfolio Name / Title" placeholder="e.g. Blue Chip Shares" value={formData.name} onChange={handleChange('name')} theme={theme} />
+          
+          <div className={`grid grid-cols-2 gap-2 ${theme.subCard} p-1.5 rounded-2xl`}>
+            <button 
+              type="button" 
+              onClick={() => setFormData(p => ({...p, isNewInvestment: true}))}
+              className={`py-3 rounded-xl text-sm font-bold transition-all ${formData.isNewInvestment ? 'bg-[#4c82fb] text-white shadow-lg' : `${theme.textMuted} hover:${theme.textMain}`}`}
+              >
+                New Investment
+            </button>
+            <button 
+              type="button" 
+              onClick={() => setFormData(p => ({...p, isNewInvestment: false}))}
+              className={`py-3 rounded-xl text-sm font-bold transition-all ${!formData.isNewInvestment ? 'bg-[#4c82fb] text-white shadow-lg' : `${theme.textMuted} hover:${theme.textMain}`}`}
+              >
+                Current Portfolio
+            </button>
+          </div>
 
-        <Input label="Portfolio Value" prefix="$" value={formData.value} onChange={handleChange('value')} theme={theme} placeholder="0" />
-        
-        {formData.isNewInvestment && (
-          <Input label="Establishment / Brokerage Costs" prefix="$" value={formData.costs} onChange={handleChange('costs')} theme={theme} placeholder="0" />
-        )}
+          <Input label="Portfolio Value" prefix="$" value={formData.value} onChange={handleChange('value')} theme={theme} placeholder="0" />
+          
+          {formData.isNewInvestment && (
+            <Input label="Establishment / Brokerage Costs" prefix="$" value={formData.costs} onChange={handleChange('costs')} theme={theme} placeholder="0" />
+          )}
 
-        <div className="grid grid-cols-2 gap-4">
-            <div className="relative">
-                 <Input label="Expected Yield (p.a)" value={formData.yieldPercent} onChange={handleChange('yieldPercent')} theme={theme} placeholder="0" />
-                 <span className={`absolute right-4 top-10 ${theme.textMuted} text-xl`}>%</span>
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setFormData(p => ({ ...p, incomeType: 'percentage' }))}
+                className={`flex-1 py-2 text-xs font-bold uppercase rounded-lg transition-all ${formData.incomeType === 'percentage' ? theme.toggleActive : theme.toggleInactive}`}
+              >
+                % Yield
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData(p => ({ ...p, incomeType: 'fixed' }))}
+                className={`flex-1 py-2 text-xs font-bold uppercase rounded-lg transition-all ${formData.incomeType === 'fixed' ? theme.toggleActive : theme.toggleInactive}`}
+              >
+                Fixed Amount
+              </button>
             </div>
-            <Select 
-                label="Payment Frequency" 
-                value={formData.paymentFreq} 
-                onChange={handleChange('paymentFreq')}
-                options={[{value: 'monthly', label: 'Monthly'}, {value: 'quarterly', label: 'Quarterly'}, {value: 'annually', label: 'Annually'}, {value: 'fortnightly', label: 'Fortnightly'}, {value: 'weekly', label: 'Weekly'}]}
-                theme={theme}
-              />
-        </div>
 
-        <div className="grid grid-cols-2 gap-4">
-              <Input label="Ongoing Expenses" prefix="$" value={formData.ongoingExpenses} onChange={handleChange('ongoingExpenses')} placeholder="0.00" theme={theme} />
-              <Select 
-                label="Expense Frequency" 
-                value={formData.expenseFreq} 
-                onChange={handleChange('expenseFreq')}
-                options={[{value: 'monthly', label: 'Monthly'}, {value: 'quarterly', label: 'Quarterly'}, {value: 'annually', label: 'Annually'}]}
-                theme={theme}
-              />
-           </div>
+            <div className="grid grid-cols-2 gap-4">
+                <div className="relative">
+                    {formData.incomeType === 'percentage' ? (
+                      <>
+                          <Input label="Expected Yield (p.a)" value={formData.yieldPercent} onChange={handleChange('yieldPercent')} theme={theme} placeholder="0" />
+                          <span className={`absolute right-4 top-10 ${theme.textMuted} text-xl`}>%</span>
+                      </>
+                    ) : (
+                      <Input label="Income Amount" prefix="$" value={formData.fixedIncomeAmount} onChange={handleChange('fixedIncomeAmount')} theme={theme} placeholder="0" />
+                    )}
+                </div>
+                <Select 
+                    label="Payment Frequency" 
+                    value={formData.paymentFreq} 
+                    onChange={handleChange('paymentFreq')}
+                    options={[{value: 'monthly', label: 'Monthly'}, {value: 'quarterly', label: 'Quarterly'}, {value: 'annually', label: 'Annually'}, {value: 'fortnightly', label: 'Fortnightly'}, {value: 'weekly', label: 'Weekly'}]}
+                    theme={theme}
+                  />
+            </div>
+          </div>
 
-        <div className={`flex gap-3 mt-6 pt-4 ${theme.borderTop}`}>
-           <Button variant="secondary" onClick={onClose} className="flex-1" theme={theme}>Cancel</Button>
-           <Button variant="primary" type="submit" className="flex-1" theme={theme}>Add Portfolio</Button>
-        </div>
-      </form>
-    </Modal>
+          <div className="grid grid-cols-2 gap-4">
+                <Input 
+                  label="Ongoing Expenses" 
+                  prefix="$" 
+                  value={formData.ongoingExpenses} 
+                  onChange={handleChange('ongoingExpenses')} 
+                  placeholder="0.00" 
+                  theme={theme}
+                  action={
+                    parseMoney(formData.value) > 0 && (
+                      <button 
+                        type="button"
+                        onClick={() => setIsExpenseRatioCalcOpen(true)}
+                        className={`p-3 rounded-xl transition-all ${theme.calcBtn}`}
+                        title="Calculate from Expense Ratio"
+                      >
+                        <Calculator size={20} />
+                      </button>
+                    )
+                  }
+                />
+                <Select 
+                  label="Expense Frequency" 
+                  value={formData.expenseFreq} 
+                  onChange={handleChange('expenseFreq')}
+                  options={[{value: 'monthly', label: 'Monthly'}, {value: 'quarterly', label: 'Quarterly'}, {value: 'annually', label: 'Annually'}]}
+                  theme={theme}
+                />
+            </div>
+
+          <div className={`flex gap-3 mt-6 pt-4 ${theme.borderTop}`}>
+            <Button variant="secondary" onClick={onClose} className="flex-1" theme={theme}>Cancel</Button>
+            <Button variant="primary" type="submit" className="flex-1" theme={theme}>Add Portfolio</Button>
+          </div>
+        </form>
+      </Modal>
+
+      <ExpenseRatioCalcModal isOpen={isExpenseRatioCalcOpen} onClose={() => setIsExpenseRatioCalcOpen(false)} portfolioValue={formData.value} onApply={handleApplyExpenseRatio} theme={theme} />
+    </>
   );
 };
 
 // --- Main Application ---
 
 export default function CashflowForecast() {
-  // State
+  // ... existing implementation
   const [openingBalance, setOpeningBalance] = useState(0);
   const [items, setItems] = useState([]);
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -1076,16 +1293,21 @@ export default function CashflowForecast() {
       if (data.costs > 0) newItems.push({ name: `${prefix} Costs`, amount: parseMoney(data.costs), type: 'outflow', category: 'one-off', month: 1 });
     }
 
-    if (data.yieldPercent > 0) {
-      const annualYield = value * (parseFloat(data.yieldPercent) / 100);
-      let yieldAmount = 0;
-      if (data.paymentFreq === 'monthly') yieldAmount = annualYield / 12;
-      else if (data.paymentFreq === 'quarterly') yieldAmount = annualYield / 4;
-      else if (data.paymentFreq === 'annually') yieldAmount = annualYield;
-      else if (data.paymentFreq === 'fortnightly') yieldAmount = annualYield / 26;
-      else if (data.paymentFreq === 'weekly') yieldAmount = annualYield / 52;
-      else yieldAmount = annualYield; 
+    let yieldAmount = 0;
+    // Calculate Yield based on type
+    if (data.incomeType === 'fixed') {
+        yieldAmount = parseMoney(data.fixedIncomeAmount);
+    } else if (data.yieldPercent > 0) {
+        const annualYield = value * (parseFloat(data.yieldPercent) / 100);
+        if (data.paymentFreq === 'monthly') yieldAmount = annualYield / 12;
+        else if (data.paymentFreq === 'quarterly') yieldAmount = annualYield / 4;
+        else if (data.paymentFreq === 'annually') yieldAmount = annualYield;
+        else if (data.paymentFreq === 'fortnightly') yieldAmount = annualYield / 26;
+        else if (data.paymentFreq === 'weekly') yieldAmount = annualYield / 52;
+        else yieldAmount = annualYield; 
+    }
 
+    if (yieldAmount > 0) {
       newItems.push({ name: `${prefix} Yield`, amount: yieldAmount, type: 'inflow', category: 'ongoing', frequency: data.paymentFreq });
     }
 
@@ -1348,40 +1570,45 @@ export default function CashflowForecast() {
                   </tr>
                 </thead>
                 <tbody className={`divide-y ${theme.divider}`}>
-                  {monthlyData.map((row) => (
-                    <tr key={row.month} className={`${theme.rowHover} transition-colors group relative`}>
-                      <td className={`px-6 py-4 font-semibold ${theme.textMain}`}>Month {row.month}</td>
-                      <td className={`px-6 py-4 text-right ${theme.textMuted} font-mono font-medium`}>{formatMoney(row.opening)}</td>
-                      <td className="px-6 py-4 text-right text-[#27ae60]/90 font-mono font-medium">{row.oneOffIn > 0 ? `+${formatMoney(row.oneOffIn)}` : '-'}</td>
-                      <td className="px-6 py-4 text-right text-[#27ae60]/90 font-mono font-medium">{row.ongoingIn > 0 ? `+${formatMoney(row.ongoingIn)}` : '-'}</td>
-                      <td className="px-6 py-4 text-right text-[#ff4343]/90 font-mono font-medium">{row.oneOffOut > 0 ? `-${formatMoney(row.oneOffOut)}` : '-'}</td>
-                      <td className="px-6 py-4 text-right text-[#ff4343]/90 font-mono font-medium">{row.ongoingOut > 0 ? `-${formatMoney(row.ongoingOut)}` : '-'}</td>
-                      <td className={`px-6 py-4 text-right font-mono font-bold ${row.netFlow >= 0 ? 'text-[#27ae60]' : 'text-[#ff4343]'}`}>
-                        {formatMoney(row.netFlow)}
-                      </td>
-                      <td className={`px-6 py-4 text-right font-mono font-bold ${theme.textMain} ${theme.tableCellClosing}`}>
-                        {formatMoney(row.closing)}
-                      </td>
-
-                      {/* Hover Breakdown Tooltip - Sorted */}
-                      {row.breakdowns.length > 0 && (
-                        <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3 hidden group-hover:block z-50">
-                          <div className={`${theme.cardBg} ${theme.textMain} text-xs rounded-2xl p-4 shadow-2xl border ${theme.cardBorder} min-w-[280px]`}>
-                            <div className={`font-bold border-b ${theme.tableRowBorder} pb-2 mb-2 ${theme.textMuted} uppercase tracking-wider`}>Breakdown - Month {row.month}</div>
-                            {row.breakdowns.map((b, i) => (
-                               <div key={i} className={`flex justify-between py-1.5 border-b ${theme.tableRowBorder} last:border-0`}>
-                                 <span className="truncate max-w-[160px] font-medium">{b.name}</span>
-                                 <span className={b.type === 'inflow' ? 'text-[#27ae60] font-mono' : 'text-[#ff4343] font-mono'}>
-                                   {b.type === 'inflow' ? '+' : '-'}{formatMoney(b.amount)}
-                                 </span>
-                               </div>
-                            ))}
-                          </div>
-                          <div className={`w-4 h-4 ${theme.cardBg} border-r border-b ${theme.cardBorder} rotate-45 absolute left-1/2 -translate-x-1/2 -bottom-2`}></div>
-                        </div>
-                      )}
-                    </tr>
-                  ))}
+                  {monthlyData.map((row, index) => {
+                    const isTopRow = index < 2; // Check if first 2 rows
+                    return (
+                      <tr key={row.month} className={`${theme.rowHover} transition-colors group relative hover:z-20`}>
+                        <td className={`px-6 py-4 font-semibold ${theme.textMain}`}>
+                          Month {row.month}
+                          {/* Hover Breakdown Tooltip - Sorted */}
+                          {row.breakdowns.length > 0 && (
+                            <div className={`absolute left-1/2 -translate-x-1/2 ${isTopRow ? 'top-full mt-3' : 'bottom-full mb-3'} hidden group-hover:block z-50 pointer-events-none`}>
+                              <div className={`${theme.cardBg} ${theme.textMain} text-xs rounded-2xl p-4 shadow-2xl border ${theme.cardBorder} min-w-[280px]`}>
+                                <div className={`font-bold border-b ${theme.tableRowBorder} pb-2 mb-2 ${theme.textMuted} uppercase tracking-wider`}>Breakdown - Month {row.month}</div>
+                                {row.breakdowns.map((b, i) => (
+                                   <div key={i} className={`flex justify-between py-1.5 border-b ${theme.tableRowBorder} last:border-0`}>
+                                     <span className="truncate max-w-[160px] font-medium">{b.name}</span>
+                                     <span className={b.type === 'inflow' ? 'text-[#27ae60] font-mono' : 'text-[#ff4343] font-mono'}>
+                                       {b.type === 'inflow' ? '+' : '-'}{formatMoney(b.amount)}
+                                     </span>
+                                   </div>
+                                ))}
+                              </div>
+                              {/* Arrow */}
+                              <div className={`w-4 h-4 ${theme.cardBg} border-r border-b ${theme.cardBorder} rotate-45 absolute left-1/2 -translate-x-1/2 ${isTopRow ? '-top-2 border-t border-l border-r-0 border-b-0' : '-bottom-2'}`}></div>
+                            </div>
+                          )}
+                        </td>
+                        <td className={`px-6 py-4 text-right ${theme.textMuted} font-mono font-medium`}>{formatMoney(row.opening)}</td>
+                        <td className="px-6 py-4 text-right text-[#27ae60]/90 font-mono font-medium">{row.oneOffIn > 0 ? `+${formatMoney(row.oneOffIn)}` : '-'}</td>
+                        <td className="px-6 py-4 text-right text-[#27ae60]/90 font-mono font-medium">{row.ongoingIn > 0 ? `+${formatMoney(row.ongoingIn)}` : '-'}</td>
+                        <td className="px-6 py-4 text-right text-[#ff4343]/90 font-mono font-medium">{row.oneOffOut > 0 ? `-${formatMoney(row.oneOffOut)}` : '-'}</td>
+                        <td className="px-6 py-4 text-right text-[#ff4343]/90 font-mono font-medium">{row.ongoingOut > 0 ? `-${formatMoney(row.ongoingOut)}` : '-'}</td>
+                        <td className={`px-6 py-4 text-right font-mono font-bold ${row.netFlow >= 0 ? 'text-[#27ae60]' : 'text-[#ff4343]'}`}>
+                          {formatMoney(row.netFlow)}
+                        </td>
+                        <td className={`px-6 py-4 text-right font-mono font-bold ${theme.textMain} ${theme.tableCellClosing}`}>
+                          {formatMoney(row.closing)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
